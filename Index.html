@@ -1,0 +1,172 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1" />
+  <title>AI Translator</title>
+  <script src="https://js.puter.com/v2/"></script>
+  <script src="https://cdn.tailwindcss.com"></script>
+</head>
+<body class="bg-gray-100 text-gray-900 flex flex-col items-center min-h-screen p-4 transition-colors duration-300">
+  <h1 class="text-4xl font-bold mb-6">AI Translator</h1>
+
+  <div class="bg-white p-6 rounded-xl shadow-lg w-full max-w-xl transition-colors duration-300">
+    <div class="mb-4 grid grid-cols-1 md:grid-cols-2 gap-4">
+      <div>
+        <label for="inputLang" class="block text-gray-700 font-semibold mb-1">Input Language:</label>
+        <input id="inputLang" type="text" placeholder="e.g., English, French, etc." class="w-full p-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-400 bg-gray-50" />
+      </div>
+      <div>
+        <label for="outputLang" class="block text-gray-700 font-semibold mb-1">Output Language:</label>
+        <input id="outputLang" type="text" placeholder="e.g., Arabic, Spanish, etc." class="w-full p-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-400 bg-gray-50" />
+      </div>
+    </div>
+
+    <div class="mb-4 flex items-center justify-between">
+      <div>
+        <input id="thinkingMode" type="checkbox" class="mr-2 align-middle" />
+        <label for="thinkingMode" class="font-semibold align-middle">Thinking Mode (GPT-5 / Gemini)</label>
+      </div>
+      <button id="swapBtn" type="button" class="bg-green-500 hover:bg-green-600 text-white font-bold py-1 px-3 rounded-lg transition-colors">Swap Languages</button>
+    </div>
+
+    <div class="mb-4">
+      <label for="inputText" class="block font-semibold mb-1">Text to Translate:</label>
+      <textarea id="inputText" rows="4" class="w-full p-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-400 bg-gray-50"></textarea>
+    </div>
+
+    <button id="translateBtn" type="button" class="w-full bg-blue-500 hover:bg-blue-600 text-white font-bold py-2 px-4 rounded-lg transition-colors mb-4">Translate</button>
+
+    <h3 class="text-xl font-semibold mb-2">Translation Output:</h3>
+    <p id="outputText" class="mt-2 p-4 bg-gray-50 border border-gray-200 rounded-lg min-h-[80px] transition-colors duration-300 whitespace-pre-wrap"></p>
+
+    <div class="mt-6 flex flex-col md:flex-row gap-4">
+      <button id="copyBtn" type="button" class="bg-yellow-500 hover:bg-yellow-600 text-white font-bold py-2 px-4 rounded-lg transition-colors">Copy Translation</button>
+      <button id="clearBtn" type="button" class="bg-red-500 hover:bg-red-600 text-white font-bold py-2 px-4 rounded-lg transition-colors">Clear</button>
+    </div>
+  </div>
+
+  <script>
+    // Attach event listeners instead of inline onclick attributes to avoid parsing issues in editors.
+    document.addEventListener('DOMContentLoaded', () => {
+      const translateBtn = document.getElementById('translateBtn');
+      const swapBtn = document.getElementById('swapBtn');
+      const copyBtn = document.getElementById('copyBtn');
+      const clearBtn = document.getElementById('clearBtn');
+
+      translateBtn.addEventListener('click', translateText);
+      swapBtn.addEventListener('click', swapLanguages);
+      copyBtn.addEventListener('click', copyOutput);
+      clearBtn.addEventListener('click', clearFields);
+    });
+
+    async function translateText() {
+      const btn = document.getElementById('translateBtn');
+      const originalBtnText = btn ? btn.innerText : 'Translate';
+      if (btn) { btn.disabled = true; btn.innerText = 'Translating...'; }
+
+      const inputText = document.getElementById('inputText').value.trim();
+      const inputLang = document.getElementById('inputLang').value.trim() || 'auto';
+      const outputLang = document.getElementById('outputLang').value.trim() || 'English';
+      const thinkingMode = document.getElementById('thinkingMode').checked;
+      const model = thinkingMode ? 'gemini-2.5-pro' : 'gpt-5-chat-latest';
+
+      if (!inputText) {
+        document.getElementById('outputText').innerText = 'Please enter text to translate.';
+        if (btn) { btn.disabled = false; btn.innerText = originalBtnText; }
+        return;
+      }
+
+      document.getElementById('outputText').innerText = '';
+
+      const prompt = `You are a helpful translator. Translate the following text from ${inputLang} to ${outputLang} and return ONLY the translated text with no extra commentary:\n\n${inputText}`;
+
+      try {
+        const response = await puter.ai.chat(prompt, { model });
+        const out = extractTranslationFromResponse(response);
+        document.getElementById('outputText').innerText = out;
+      } catch (err) {
+        console.error('Translation error:', err);
+        let msg = 'An error occurred during translation.';
+        if (err && err.message) msg += ' ' + err.message;
+        document.getElementById('outputText').innerText = msg;
+      } finally {
+        if (btn) { btn.disabled = false; btn.innerText = originalBtnText; }
+      }
+    }
+
+    function extractTranslationFromResponse(response) {
+      try {
+        if (response === null || response === undefined) return '';
+        if (typeof response === 'string') return response.trim();
+
+        if (response && response.message) {
+          if (typeof response.message.content === 'string') return response.message.content.trim();
+          if (response.message.content && typeof response.message.content === 'object') return JSON.stringify(response.message.content);
+        }
+
+        if (response && Array.isArray(response.choices) && response.choices.length > 0) {
+          const c = response.choices[0];
+          if (c.message && (typeof c.message.content === 'string')) return c.message.content.trim();
+          if (c.message && c.message.content && typeof c.message.content === 'object') return JSON.stringify(c.message.content);
+          if (typeof c.text === 'string') return c.text.trim();
+          if (c.delta && typeof c.delta.content === 'string') return c.delta.content.trim();
+        }
+
+        if (typeof response.output_text === 'string') return response.output_text.trim();
+        if (response.data && Array.isArray(response.data) && response.data[0] && typeof response.data[0].text === 'string') return response.data[0].text.trim();
+        if (typeof response.content === 'string') return response.content.trim();
+        if (response.result && typeof response.result.output === 'string') return response.result.output.trim();
+
+        const found = findFirstContentField(response);
+        if (found) {
+          if (typeof found === 'string') return found.trim();
+          try { return JSON.stringify(found); } catch(e) { /* fallthrough */ }
+        }
+
+        try { return JSON.stringify(response).slice(0, 10000); } catch (e) { return String(response); }
+      } catch (e) {
+        console.error('Failed to parse response shape:', e, response);
+        return 'Could not parse translation response.';
+      }
+    }
+
+    function findFirstContentField(obj) {
+      const queue = [obj];
+      const seen = new WeakSet();
+      while (queue.length) {
+        const cur = queue.shift();
+        if (!cur || typeof cur !== 'object' || seen.has(cur)) continue;
+        seen.add(cur);
+        if (typeof cur.content === 'string') return cur.content.trim();
+        for (const key of Object.keys(cur)) {
+          const val = cur[key];
+          if (val && typeof val === 'object') queue.push(val);
+        }
+      }
+      return null;
+    }
+
+    function swapLanguages() {
+      const inputLangField = document.getElementById('inputLang');
+      const outputLangField = document.getElementById('outputLang');
+      [inputLangField.value, outputLangField.value] = [outputLangField.value, inputLangField.value];
+    }
+
+    function copyOutput() {
+      const outputText = document.getElementById('outputText').innerText;
+      if (!outputText) return alert('Nothing to copy');
+      navigator.clipboard.writeText(outputText).then(() => {
+        alert('Translation copied to clipboard!');
+      }).catch(() => {
+        alert('Failed to copy translation.');
+      });
+    }
+
+    function clearFields() {
+      document.getElementById('inputText').value = '';
+      document.getElementById('outputText').innerText = '';
+    }
+  </script>
+</body>
+</html>
