@@ -14,19 +14,15 @@
     <div class="mb-4 grid grid-cols-1 md:grid-cols-2 gap-4">
       <div>
         <label for="inputLang" class="block text-gray-700 font-semibold mb-1">Input Language:</label>
-        <input id="inputLang" type="text" placeholder="e.g., English, French, etc." class="w-full p-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-400 bg-gray-50" />
+        <input id="inputLang" type="text" placeholder="e.g., English" class="w-full p-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-400 bg-gray-50" />
       </div>
       <div>
         <label for="outputLang" class="block text-gray-700 font-semibold mb-1">Output Language:</label>
-        <input id="outputLang" type="text" placeholder="e.g., Arabic, Spanish, etc." class="w-full p-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-400 bg-gray-50" />
+        <input id="outputLang" type="text" placeholder="e.g., Arabic" class="w-full p-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-400 bg-gray-50" />
       </div>
     </div>
 
-    <div class="mb-4 flex items-center justify-between">
-      <div>
-        <input id="thinkingMode" type="checkbox" class="mr-2 align-middle" />
-        <label for="thinkingMode" class="font-semibold align-middle">Thinking Mode (GPT-5 / Gemini)</label>
-      </div>
+    <div class="mb-4 flex justify-end">
       <button id="swapBtn" type="button" class="bg-green-500 hover:bg-green-600 text-white font-bold py-1 px-3 rounded-lg transition-colors">Swap Languages</button>
     </div>
 
@@ -47,7 +43,6 @@
   </div>
 
   <script>
-    // Attach event listeners instead of inline onclick attributes to avoid parsing issues in editors.
     document.addEventListener('DOMContentLoaded', () => {
       const translateBtn = document.getElementById('translateBtn');
       const swapBtn = document.getElementById('swapBtn');
@@ -68,8 +63,7 @@
       const inputText = document.getElementById('inputText').value.trim();
       const inputLang = document.getElementById('inputLang').value.trim() || 'auto';
       const outputLang = document.getElementById('outputLang').value.trim() || 'English';
-      const thinkingMode = document.getElementById('thinkingMode').checked;
-      const model = thinkingMode ? 'gemini-2.5-pro' : 'gpt-5-chat-latest';
+      const model = 'gpt-5-chat-latest';
 
       if (!inputText) {
         document.getElementById('outputText').innerText = 'Please enter text to translate.';
@@ -121,7 +115,7 @@
         const found = findFirstContentField(response);
         if (found) {
           if (typeof found === 'string') return found.trim();
-          try { return JSON.stringify(found); } catch(e) { /* fallthrough */ }
+          try { return JSON.stringify(found); } catch(e) { }
         }
 
         try { return JSON.stringify(response).slice(0, 10000); } catch (e) { return String(response); }
