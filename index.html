@@ -3,16 +3,12 @@
 <head>
   <meta charset="utf-8" />
   <meta name="viewport" content="width=device-width, initial-scale=1" />
-  <title>AI Translator + PDF Translator (fixed button)</title>
+  <title>AI Translator</title>
   <script src="https://js.puter.com/v2/"></script>
-  <!-- pdf.js -->
-  <script src="https://mozilla.github.io/pdf.js/build/pdf.js"></script>
-  <!-- jsPDF -->
-  <script src="https://cdnjs.cloudflare.com/ajax/libs/jspdf/2.5.1/jspdf.umd.min.js"></script>
   <script src="https://cdn.tailwindcss.com"></script>
 </head>
 <body class="bg-gray-100 text-gray-900 flex flex-col items-center min-h-screen p-4 transition-colors duration-300">
-  <h1 class="text-4xl font-bold mb-6">AI Translator + PDF Translator</h1>
+  <h1 class="text-4xl font-bold mb-6">AI Translator</h1>
 
   <div class="bg-white p-6 rounded-xl shadow-lg w-full max-w-xl transition-colors duration-300">
     <div class="mb-4 grid grid-cols-1 md:grid-cols-2 gap-4">
@@ -35,49 +31,14 @@
       <textarea id="inputText" rows="4" class="w-full p-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-400 bg-gray-50"></textarea>
     </div>
 
-    <!-- Controls: Translate text + PDF input + Translate PDF (purple, fixed next to input) -->
-    <div class="mb-4 flex flex-col md:flex-row items-center gap-4">
-      <button id="translateBtn" type="button" class="bg-blue-500 hover:bg-blue-600 text-white font-bold py-2 px-4 rounded-lg transition-colors">Translate Text</button>
-
-      <!-- Group file input and translate-pdf button together so the purple button sits right next to file input -->
-      <div class="flex items-center gap-2 w-full md:w-auto">
-        <label class="w-full md:w-auto flex items-center gap-2">
-          <input type="file" id="pdfInput" accept="application/pdf" class="text-sm file:mr-2 file:py-1 file:px-2 file:rounded file:border-0 file:text-sm file:bg-gray-200 file:hover:bg-gray-300"/>
-        </label>
-        <!-- Purple Translate PDF button (fixed position: right of the file input) -->
-        <button id="translatePdfBtn" type="button" class="bg-purple-600 hover:bg-purple-700 text-white font-bold py-2 px-4 rounded-lg transition-colors whitespace-nowrap">Translate PDF</button>
-      </div>
-    </div>
-
-    <!-- PROGRESS UI -->
-    <div id="progressWrapper" class="mb-4 bg-gray-50 p-3 rounded-lg border border-gray-200 hidden">
-      <div class="flex items-center justify-between mb-2">
-        <div class="text-sm font-medium" id="progressStatus">Idle</div>
-        <div class="text-xs text-gray-500" id="progressSubStatus">—</div>
-      </div>
-      <progress id="progressBar" value="0" max="100" class="w-full h-3 rounded overflow-hidden"></progress>
-      <div class="flex items-center justify-between mt-2">
-        <div class="text-xs text-gray-600" id="progressPercent">0%</div>
-        <div>
-          <button id="cancelBtn" class="text-xs bg-red-400 hover:bg-red-500 text-white px-2 py-1 rounded mr-2">Cancel</button>
-        </div>
-      </div>
-    </div>
+    <button id="translateBtn" type="button" class="w-full bg-blue-500 hover:bg-blue-600 text-white font-bold py-2 px-4 rounded-lg transition-colors mb-4">Translate</button>
 
     <h3 class="text-xl font-semibold mb-2">Translation Output:</h3>
     <p id="outputText" class="mt-2 p-4 bg-gray-50 border border-gray-200 rounded-lg min-h-[80px] transition-colors duration-300 whitespace-pre-wrap"></p>
 
-    <!-- Bottom action row: copy, clear, and download aligned to the right -->
-    <div class="mt-6 flex items-center gap-4">
-      <div class="flex gap-4">
-        <button id="copyBtn" type="button" class="bg-yellow-500 hover:bg-yellow-600 text-white font-bold py-2 px-4 rounded-lg transition-colors">Copy Translation</button>
-        <button id="clearBtn" type="button" class="bg-red-500 hover:bg-red-600 text-white font-bold py-2 px-4 rounded-lg transition-colors">Clear</button>
-      </div>
-
-      <!-- spacer pushes the download button to the far right -->
-      <div class="flex-1"></div>
-
-      <button id="downloadPdfBtn" type="button" class="bg-indigo-600 hover:bg-indigo-700 text-white font-bold py-2 px-4 rounded-lg transition-colors hidden">Download Translated PDF</button>
+    <div class="mt-6 flex flex-col md:flex-row gap-4">
+      <button id="copyBtn" type="button" class="bg-yellow-500 hover:bg-yellow-600 text-white font-bold py-2 px-4 rounded-lg transition-colors">Copy Translation</button>
+      <button id="clearBtn" type="button" class="bg-red-500 hover:bg-red-600 text-white font-bold py-2 px-4 rounded-lg transition-colors">Clear</button>
     </div>
   </div>
 
@@ -87,47 +48,12 @@
       const swapBtn = document.getElementById('swapBtn');
       const copyBtn = document.getElementById('copyBtn');
       const clearBtn = document.getElementById('clearBtn');
-      const translatePdfBtn = document.getElementById('translatePdfBtn');
-      const downloadPdfBtn = document.getElementById('downloadPdfBtn');
-      const cancelBtn = document.getElementById('cancelBtn');
 
       translateBtn.addEventListener('click', translateText);
       swapBtn.addEventListener('click', swapLanguages);
       copyBtn.addEventListener('click', copyOutput);
       clearBtn.addEventListener('click', clearFields);
-      translatePdfBtn.addEventListener('click', translatePdf);
-      cancelBtn.addEventListener('click', () => {
-        shouldCancel = true;
-        setProgressStatus('Cancelling...', 'Attempting graceful stop — please wait');
-      });
     });
-
-    // TOKEN LIMITS (example values; adjust based on actual model limits)
-    const MAX_INPUT_TOKENS = 200_000;
-    const MAX_OUTPUT_TOKENS = 100_000;
-    const CHUNK_INPUT_TOKENS = 50_000;
-    const CHUNK_OUTPUT_TOKENS = 20_000;
-
-    // Progress control
-    const progressWrapper = document.getElementById('progressWrapper');
-    const progressBar = document.getElementById('progressBar');
-    const progressStatus = document.getElementById('progressStatus');
-    const progressSubStatus = document.getElementById('progressSubStatus');
-    const progressPercentText = document.getElementById('progressPercent');
-    let shouldCancel = false; // cancel flag
-
-    function showProgress() { progressWrapper.classList.remove('hidden'); }
-    function hideProgress() { progressWrapper.classList.add('hidden'); }
-    function setProgress(percent, subText = '') {
-      const p = Math.min(100, Math.max(0, Math.round(percent)));
-      progressBar.value = p;
-      progressPercentText.innerText = p + '%';
-      if (subText) progressSubStatus.innerText = subText;
-    }
-    function setProgressStatus(main, sub = '') {
-      progressStatus.innerText = main;
-      progressSubStatus.innerText = sub;
-    }
 
     async function translateText() {
       const btn = document.getElementById('translateBtn');
@@ -137,7 +63,7 @@
       const inputText = document.getElementById('inputText').value.trim();
       const inputLang = document.getElementById('inputLang').value.trim() || 'auto';
       const outputLang = document.getElementById('outputLang').value.trim() || 'English';
-      const model = 'gpt-5';  // using gpt-5
+      const model = 'gpt-5-chat-latest';
 
       if (!inputText) {
         document.getElementById('outputText').innerText = 'Please enter text to translate.';
@@ -147,196 +73,20 @@
 
       document.getElementById('outputText').innerText = '';
 
-      const inputChunks = chunkTextByTokens(inputText, CHUNK_INPUT_TOKENS);
-
-      let finalTranslation = '';
-      showProgress();
-      setProgressStatus('Translating text', `Chunks: ${inputChunks.length}`);
-      setProgress(0);
-
-      for (let i = 0; i < inputChunks.length; i++) {
-        if (shouldCancel) { finalTranslation += '\n[Cancelled]\n'; break; }
-        const chunk = inputChunks[i];
-        const prompt = `You are a helpful translator. Translate the following text from ${inputLang} to ${outputLang} and return ONLY the translated text for this chunk (chunk ${i+1}/${inputChunks.length}):\n\n${chunk}`;
-
-        try {
-          const response = await puter.ai.chat(prompt, { model, max_output_tokens: CHUNK_OUTPUT_TOKENS });
-          const out = extractTranslationFromResponse(response);
-          finalTranslation += out + "\n";
-        } catch (err) {
-          console.error('Translation error on chunk', i, err);
-          finalTranslation += `\n[Error translating chunk ${i+1}]: ${err.message || err}`;
-        }
-
-        const pct = Math.round(((i+1)/inputChunks.length) * 100);
-        setProgress(pct, `Translating chunk ${i+1} / ${inputChunks.length}`);
-      }
-
-      document.getElementById('outputText').innerText = finalTranslation;
-      setProgress(100, 'Done');
-      setTimeout(() => { hideProgress(); shouldCancel = false; }, 600);
-
-      if (btn) { btn.disabled = false; btn.innerText = originalBtnText; }
-    }
-
-    async function translatePdf() {
-      const fileInput = document.getElementById('pdfInput');
-      const inputLang = document.getElementById('inputLang').value.trim() || 'auto';
-      const outputLang = document.getElementById('outputLang').value.trim() || 'English';
-      const model = 'gpt-5';
-
-      if (!fileInput.files || fileInput.files.length === 0) {
-        alert('Please select a PDF file first.');
-        return;
-      }
-      const pdfFile = fileInput.files[0];
-
-      // reset/cancel flags & UI
-      shouldCancel = false;
-      document.getElementById('downloadPdfBtn').classList.add('hidden');
-      showProgress();
-      setProgressStatus('Preparing', 'Loading file...');
-      setProgress(2);
-
-      // load PDF via pdf.js
-      const arrayBuffer = await fileToArrayBuffer(pdfFile);
-      if (shouldCancel) return onCancelled();
-
-      let pdf;
-      try {
-        pdf = await pdfjsLib.getDocument({ data: arrayBuffer }).promise;
-      } catch (err) {
-        console.error('pdf.js getDocument error', err);
-        setProgressStatus('Error', 'Failed to open PDF');
-        setProgress(0);
-        return;
-      }
-
-      const numPages = pdf.numPages || 0;
-      setProgressStatus('Extracting text from PDF', `Pages: ${numPages}`);
-      setProgress(0);
-
-      const EXTRACT_WEIGHT = 40;
-      const TRANSLATE_WEIGHT = 55;
-      const COMPILE_WEIGHT = 5;
-
-      let fullText = '';
-      for (let pageNum = 1; pageNum <= numPages; pageNum++) {
-        if (shouldCancel) return onCancelled();
-        try {
-          const page = await pdf.getPage(pageNum);
-          const textContent = await page.getTextContent();
-          const pageTextItems = textContent.items.map(item => item.str || '');
-          const pageText = pageTextItems.join(' ');
-          fullText += pageText + "\n\n";
-        } catch (err) {
-          console.warn(`Failed to extract page ${pageNum}`, err);
-          fullText += `\n\n[Could not extract page ${pageNum}]\n\n`;
-        }
-
-        const extractPct = Math.round((pageNum / Math.max(1, numPages)) * EXTRACT_WEIGHT);
-        setProgress(extractPct, `Extracting pages — ${pageNum}/${numPages}`);
-      }
-
-      if (shouldCancel) return onCancelled();
-
-      const inputChunks = chunkTextByTokens(fullText, CHUNK_INPUT_TOKENS);
-      setProgressStatus('Translating', `Chunks: ${inputChunks.length}`);
-      let translatedText = '';
-      for (let i = 0; i < inputChunks.length; i++) {
-        if (shouldCancel) return onCancelled();
-
-        const chunk = inputChunks[i];
-        const prompt = `You are a helpful translator. Translate the following text from ${inputLang} to ${outputLang} and return ONLY the translated text for this chunk (chunk ${i+1}/${inputChunks.length}):\n\n${chunk}`;
-
-        try {
-          const response = await puter.ai.chat(prompt, { model, max_output_tokens: CHUNK_OUTPUT_TOKENS });
-          const out = extractTranslationFromResponse(response);
-          translatedText += out + "\n\n";
-        } catch (err) {
-          console.error('Error translating PDF chunk', i, err);
-          translatedText += `[Error translating chunk ${i+1}]: ${err.message || err}\n\n`;
-        }
-
-        const translatePart = ((i + 1) / Math.max(1, inputChunks.length)) * TRANSLATE_WEIGHT;
-        const pctSoFar = EXTRACT_WEIGHT + translatePart;
-        setProgress(pctSoFar, `Translating chunk ${i+1}/${inputChunks.length}`);
-      }
-
-      if (shouldCancel) return onCancelled();
-
-      document.getElementById('outputText').innerText = translatedText;
-
-      setProgressStatus('Compiling PDF', 'Formatting translated text');
-      setProgress(EXTRACT_WEIGHT + TRANSLATE_WEIGHT + 1);
+      const prompt = `You are a helpful translator. Translate the following text from ${inputLang} to ${outputLang} and return ONLY the translated text with no extra commentary:\n\n${inputText}`;
 
       try {
-        const { jsPDF } = window.jspdf;
-        const doc = new jsPDF();
-
-        const marginLeft = 10;
-        const marginTop = 20;
-        const pageWidth = doc.internal.pageSize.width - 20;
-        const lineHeight = 8;
-        const fontSize = 12;
-        doc.setFontSize(fontSize);
-
-        const lines = doc.splitTextToSize(translatedText, pageWidth);
-        let cursorY = marginTop;
-        for (let i = 0; i < lines.length; i++) {
-          if (shouldCancel) return onCancelled();
-          if (cursorY + lineHeight > doc.internal.pageSize.height - marginTop) {
-            doc.addPage();
-            cursorY = marginTop;
-          }
-          doc.text(lines[i], marginLeft, cursorY);
-          cursorY += lineHeight;
-
-          if (i % 50 === 0) {
-            const compileProgress = EXTRACT_WEIGHT + TRANSLATE_WEIGHT + ((i / Math.max(1, lines.length)) * COMPILE_WEIGHT);
-            setProgress(compileProgress, `Compiling page content...`);
-          }
-        }
-
-        const downloadBtn = document.getElementById('downloadPdfBtn');
-        downloadBtn.classList.remove('hidden');
-        downloadBtn.onclick = () => doc.save('translated.pdf');
-
-        setProgress(100, 'Done — translated PDF ready');
-        shouldCancel = false;
-        setTimeout(() => hideProgress(), 600);
+        const response = await puter.ai.chat(prompt, { model });
+        const out = extractTranslationFromResponse(response);
+        document.getElementById('outputText').innerText = out;
       } catch (err) {
-        console.error('jsPDF compile error', err);
-        setProgressStatus('Error', 'Failed to create translated PDF');
-        setProgress(0);
+        console.error('Translation error:', err);
+        let msg = 'An error occurred during translation.';
+        if (err && err.message) msg += ' ' + err.message;
+        document.getElementById('outputText').innerText = msg;
+      } finally {
+        if (btn) { btn.disabled = false; btn.innerText = originalBtnText; }
       }
-    }
-
-    function onCancelled() {
-      setProgressStatus('Cancelled', 'Operation was cancelled by user');
-      setProgress(0, 'Cancelled');
-      document.getElementById('downloadPdfBtn').classList.add('hidden');
-      shouldCancel = false;
-      setTimeout(() => hideProgress(), 800);
-    }
-
-    function chunkTextByTokens(text, maxTokens) {
-      const words = text.split(/\s+/);
-      const approxTokens = words.length / 1.3;
-      if (approxTokens <= maxTokens) return [ text ];
-
-      const chunks = [];
-      let current = [];
-      for (const w of words) {
-        current.push(w);
-        const currentTokens = current.length / 1.3;
-        if (currentTokens >= maxTokens) {
-          chunks.push(current.join(' '));
-          current = [];
-        }
-      }
-      if (current.length > 0) chunks.push(current.join(' '));
-      return chunks;
     }
 
     function extractTranslationFromResponse(response) {
@@ -410,19 +160,6 @@
     function clearFields() {
       document.getElementById('inputText').value = '';
       document.getElementById('outputText').innerText = '';
-      document.getElementById('downloadPdfBtn').classList.add('hidden');
-      shouldCancel = false;
-      hideProgress();
-      setProgress(0);
-    }
-
-    function fileToArrayBuffer(file) {
-      return new Promise((resolve, reject) => {
-        const reader = new FileReader();
-        reader.onload = () => resolve(reader.result);
-        reader.onerror = reject;
-        reader.readAsArrayBuffer(file);
-      });
     }
   </script>
 </body>
