@@ -13,7 +13,7 @@
   <div class="bg-white p-6 rounded-xl shadow-lg w-full max-w-xl transition-colors duration-300">
     <div class="mb-4 grid grid-cols-1 md:grid-cols-2 gap-4">
       <div>
-        <label for="inputLang" class="block text-gray-700 font-semibold mb-1">Input Language:</label>
+        <label for="inputLang" class="block https://github.com/69420gaming/ai-translate.git-gray-700 font-semibold mb-1">Input Language:</label>
         <input id="inputLang" type="text" placeholder="e.g., English" class="w-full p-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-400 bg-gray-50" />
       </div>
       <div>
@@ -63,7 +63,7 @@
       const inputText = document.getElementById('inputText').value.trim();
       const inputLang = document.getElementById('inputLang').value.trim() || 'auto';
       const outputLang = document.getElementById('outputLang').value.trim() || 'English';
-      const model = 'gpt-5-chat-latest';
+      const model = 'gpt-5.2-chat-latest';
 
       if (!inputText) {
         document.getElementById('outputText').innerText = 'Please enter text to translate.';
